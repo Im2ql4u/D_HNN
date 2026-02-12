@@ -130,6 +130,57 @@ def generate_data(
     return t_eval, np.array(x_list), np.array(y_list)
 
 
+def generate_data_multi_rho(
+    ode_factory,
+    n_sims_per_rho: int,
+    n_steps: int,
+    t_end: float,
+    sampler,
+    rho_values: list[float] | np.ndarray,
+    sigma: float = 0.01,
+    rtol: float = 1e-10,
+    atol: float = 1e-10,
+):
+    """
+    Generate training data across multiple damping coefficients.
+
+    Each trajectory is labelled with its ρ so the loss can use
+    the correct dissipation strength per sample.
+
+    Parameters
+    ----------
+    ode_factory : callable(rho) → callable(y) → dy/dt
+    rho_values  : array of ρ values to sample from
+
+    Returns
+    -------
+    t_eval : (n_steps,)
+    x_all  : (N, n_steps, 2)  states
+    y_all  : (N, n_steps, 2)  derivatives
+    rho_all: (N,)              per-trajectory ρ
+    """
+    t_eval = np.linspace(0, t_end, n_steps)
+    x_list, y_list, rho_list = [], [], []
+
+    for rho in rho_values:
+        ode_fn = ode_factory(rho)
+        for _ in range(n_sims_per_rho):
+            q0, p0 = sampler()
+            sol = solve_ivp(
+                lambda _t, y: ode_fn(y),
+                [0, t_end], [q0, p0],
+                t_eval=t_eval, rtol=rtol, atol=atol,
+            )
+            x = sol.y.T
+            dx = np.array([ode_fn(x[i]) for i in range(len(x))])
+            dx += sigma * np.random.randn(*dx.shape)
+            x_list.append(x)
+            y_list.append(dx)
+            rho_list.append(rho)
+
+    return t_eval, np.array(x_list), np.array(y_list), np.array(rho_list)
+
+
 def generate_trajectory(ode_fn, y0: np.ndarray, t_end: float,
                         n_steps: int, **ivp_kw) -> tuple[np.ndarray, np.ndarray]:
     """
