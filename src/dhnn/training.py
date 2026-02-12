@@ -26,7 +26,7 @@ def loss_hnn(model, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
 
 
 def loss_dhnn(model, x: torch.Tensor, y: torch.Tensor,
-              rho: float = 1.0) -> torch.Tensor:
+              rho: float = 0.5) -> torch.Tensor:
     """D-HNN loss: (J·∇H + ρ·∇D) vs true derivatives."""
     pred = model.time_derivative(x, rho=rho)
     return ((pred - y) ** 2).mean()
@@ -94,9 +94,10 @@ def train_model(
         optimizer.step()
         scheduler.step()
 
-        with torch.no_grad():
-            tl = loss_fn(model, X_tr, Y_tr).item()
-            vl = loss_fn(model, X_te, Y_te).item()
+        model.eval()
+        tl = loss_fn(model, X_tr, Y_tr).item()
+        vl = loss_fn(model, X_te, Y_te).item()
+        model.train()
         train_losses.append(tl)
         test_losses.append(vl)
 
@@ -113,52 +114,50 @@ def train_dhnn(
     x_test: np.ndarray,
     y_test: np.ndarray,
     *,
-    epochs: int = 2000,
+    epochs: int = 5000,
     lr: float = 1e-3,
-    batch_size: int = 256,
-    verbose_every: int = 500,
-    rho: float = 1.0,
+    batch_size: int = 512,
+    verbose_every: int = 1000,
+    rho: float = 0.5,
 ) -> tuple[list[float], list[float]]:
     """
-    Train a DHNN model (both H and D networks jointly).
+    Train a DHNN model (H and D networks *jointly*).
 
-    Uses separate optimisers for H_net and D_net, matching
-    the original Julia implementation.
+    Uses a single optimiser for all parameters, which is more stable
+    than alternating H / D updates.
+
+    Parameters
+    ----------
+    rho : float
+        The dissipation strength used during training.  Must match
+        the physical ρ in the training data (default 0.5 for the
+        damped oscillator).
     """
     X_tr, Y_tr = _prepare_tensors(x_train, y_train)
     X_te, Y_te = _prepare_tensors(x_test, y_test)
 
-    opt_H = torch.optim.Adam(model.H_net.parameters(), lr=lr)
-    opt_D = torch.optim.Adam(model.D_net.parameters(), lr=lr)
-    sched_H = torch.optim.lr_scheduler.CosineAnnealingLR(opt_H, T_max=epochs)
-    sched_D = torch.optim.lr_scheduler.CosineAnnealingLR(opt_D, T_max=epochs)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
     train_losses: list[float] = []
     test_losses:  list[float] = []
     n = len(X_tr)
 
     for epoch in tqdm(range(1, epochs + 1), desc="Training D-HNN", leave=False):
+        model.train()
         idx = torch.randperm(n)[:batch_size]
-        x_b, y_b = X_tr[idx], Y_tr[idx]
+        loss = loss_dhnn(model, X_tr[idx], Y_tr[idx], rho=rho)
 
-        # Update H
-        loss_H = loss_dhnn(model, x_b, y_b, rho=rho)
-        opt_H.zero_grad()
-        loss_H.backward()
-        opt_H.step()
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
 
-        # Update D
-        loss_D = loss_dhnn(model, x_b, y_b, rho=rho)
-        opt_D.zero_grad()
-        loss_D.backward()
-        opt_D.step()
+        model.eval()
+        tl = loss_dhnn(model, X_tr, Y_tr, rho=rho).item()
+        vl = loss_dhnn(model, X_te, Y_te, rho=rho).item()
+        model.train()
 
-        sched_H.step()
-        sched_D.step()
-
-        with torch.no_grad():
-            tl = loss_dhnn(model, X_tr, Y_tr, rho=rho).item()
-            vl = loss_dhnn(model, X_te, Y_te, rho=rho).item()
         train_losses.append(tl)
         test_losses.append(vl)
 
