@@ -17,15 +17,12 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from tqdm.auto import tqdm
 
-from dhnn.molecular.schnet_hamiltonian import SchNetHamiltonian
-
-
 CHECKPOINT_DIR = Path(__file__).resolve().parents[3] / "checkpoints"
 CHECKPOINT_DIR.mkdir(exist_ok=True)
 
 
 def train_schnet(
-    model: SchNetHamiltonian,
+    model: nn.Module,
     train_loader,
     val_loader,
     *,

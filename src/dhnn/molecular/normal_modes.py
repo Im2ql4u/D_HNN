@@ -132,9 +132,10 @@ def normal_mode_analysis(
 
     # Conversion factor:  ω (cm⁻¹) = sqrt(λ · conv) / (2π c)
     # λ in kcal/mol/(amu·Å²)
-    # 1 kcal/mol = 4184 J,  1 amu = 1.66054e-27 kg,  1 Å = 1e-10 m
-    # conv = 4184 / (1.66054e-27 * (1e-10)^2) = 4184 / 1.66054e-47
-    conv = 4184.0 / 1.66054e-47           # → s⁻²
+    # 1 kcal/mol = 4184 J/mol → per molecule = 4184/Nₐ J
+    # 1 amu = 1.66054e-27 kg,  1 Å = 1e-10 m
+    avogadro = 6.02214076e23
+    conv = (4184.0 / avogadro) / (1.66054e-27 * (1e-10)**2)  # → s⁻²
     c_cm = 2.99792458e10                   # speed of light in cm/s
 
     freqs_s2 = eigenvalues * conv          # Hz²

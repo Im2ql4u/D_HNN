@@ -15,22 +15,21 @@ import numpy as np
 import torch
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
-from torch_geometric.transforms import RadiusGraph
 
 # ── Constants ────────────────────────────────────────────────────────
 
 DATA_ROOT = Path(__file__).resolve().parents[3] / "data"
 
 RMD17_MOLECULES: dict[str, dict] = {
-    "ethanol":  {"name": "revised ethanol",  "n_atoms": 9,  "n_configs": 100_000},
-    "aspirin":  {"name": "revised aspirin",  "n_atoms": 21, "n_configs": 100_000},
-    "toluene":  {"name": "revised toluene",  "n_atoms": 15, "n_configs": 100_000},
-    "benzene":  {"name": "revised benzene",  "n_atoms": 12, "n_configs": 100_000},
-    "uracil":   {"name": "revised uracil",   "n_atoms": 12, "n_configs": 100_000},
-    "naphthalene": {"name": "revised naphthalene", "n_atoms": 18, "n_configs": 100_000},
-    "salicylic": {"name": "revised salicylic acid", "n_atoms": 16, "n_configs": 100_000},
-    "malonaldehyde": {"name": "revised malonaldehyde", "n_atoms": 9, "n_configs": 100_000},
-    "paracetamol": {"name": "revised paracetamol", "n_atoms": 20, "n_configs": 100_000},
+    "ethanol":  {"name": "ethanol",  "n_atoms": 9,  "n_configs": 100_000},
+    "aspirin":  {"name": "aspirin",  "n_atoms": 21, "n_configs": 100_000},
+    "toluene":  {"name": "toluene",  "n_atoms": 15, "n_configs": 100_000},
+    "benzene":  {"name": "benzene 2017",  "n_atoms": 12, "n_configs": 100_000},
+    "uracil":   {"name": "uracil",   "n_atoms": 12, "n_configs": 100_000},
+    "naphthalene": {"name": "naphthalene", "n_atoms": 18, "n_configs": 100_000},
+    "salicylic": {"name": "salicylic acid", "n_atoms": 16, "n_configs": 100_000},
+    "malonaldehyde": {"name": "malonaldehyde", "n_atoms": 9, "n_configs": 100_000},
+    "paracetamol": {"name": "paracetamol", "n_atoms": 20, "n_configs": 100_000},
 }
 
 
@@ -95,15 +94,15 @@ def get_rmd17(
     info = RMD17_MOLECULES[molecule]
     dataset = MD17(root=str(root), name=info["name"])
 
-    # ── Edge construction ────────────────────────────────────────────
-    transform = RadiusGraph(r=cutoff, loop=False, max_num_neighbors=64)
+    # ── Build data list (no edge transform — model builds edges) ────
     processed: list[Data] = []
     for d in dataset:
-        # Ensure positions track gradients later (for force computation)
-        d.pos = d.pos.float()
-        d.y = d.energy.float()
-        d.force = d.force.float()
-        processed.append(transform(d))
+        processed.append(Data(
+            z=d.z,
+            pos=d.pos.float(),
+            y=d.energy.float(),
+            force=d.force.float(),
+        ))
 
     # ── Shuffled split ───────────────────────────────────────────────
     rng = np.random.RandomState(seed)
