@@ -62,9 +62,10 @@ class HNN(nn.Module):
 
     def time_derivative(self, x: torch.Tensor) -> torch.Tensor:
         """Compute (dq/dt, dp/dt) = (∂H/∂p, -∂H/∂q) via autograd."""
-        x = x.requires_grad_(True)
-        H = self.net(x)
-        dH = torch.autograd.grad(H.sum(), x, create_graph=True)[0]
+        with torch.enable_grad():
+            x = x.detach().requires_grad_(True)
+            H = self.net(x)
+            dH = torch.autograd.grad(H.sum(), x, create_graph=self.training)[0]
         n = x.shape[-1] // 2
         dq_dt = dH[..., n:]       # ∂H/∂p
         dp_dt = -dH[..., :n]      # -∂H/∂q
@@ -107,15 +108,17 @@ class DHNN(nn.Module):
 
     def conservative_part(self, x: torch.Tensor) -> torch.Tensor:
         """Symplectic part: J·∇H  →  (∂H/∂p, -∂H/∂q)."""
-        x = x.requires_grad_(True)
-        H = self.H_net(x)
-        dH = torch.autograd.grad(H.sum(), x, create_graph=True)[0]
+        with torch.enable_grad():
+            x = x.detach().requires_grad_(True)
+            H = self.H_net(x)
+            dH = torch.autograd.grad(H.sum(), x, create_graph=self.training)[0]
         n = x.shape[-1] // 2
         return torch.cat([dH[..., n:], -dH[..., :n]], dim=-1)
 
     def dissipative_part(self, x: torch.Tensor, rho: float = 1.0) -> torch.Tensor:
         """Gradient part: ρ·∇D."""
-        x = x.requires_grad_(True)
-        D = self.D_net(x)
-        dD = torch.autograd.grad(D.sum(), x, create_graph=True)[0]
+        with torch.enable_grad():
+            x = x.detach().requires_grad_(True)
+            D = self.D_net(x)
+            dD = torch.autograd.grad(D.sum(), x, create_graph=self.training)[0]
         return rho * dD

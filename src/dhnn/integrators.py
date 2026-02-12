@@ -80,11 +80,10 @@ def rollout(dynamics_fn, y0: np.ndarray, dt: float, n_steps: int) -> np.ndarray:
     y = torch.tensor(y0, dtype=torch.float32)
     traj = [y.detach().numpy().copy()]
     for _ in range(n_steps):
-        with torch.no_grad():
-            k1 = dynamics_fn(y)
-            k2 = dynamics_fn(y + 0.5 * dt * k1)
-            k3 = dynamics_fn(y + 0.5 * dt * k2)
-            k4 = dynamics_fn(y + dt * k3)
-            y = y + (dt / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
-        traj.append(y.detach().numpy().copy())
+        k1 = dynamics_fn(y)
+        k2 = dynamics_fn(y + 0.5 * dt * k1)
+        k3 = dynamics_fn(y + 0.5 * dt * k2)
+        k4 = dynamics_fn(y + dt * k3)
+        y = (y + (dt / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)).detach()
+        traj.append(y.numpy().copy())
     return np.array(traj)
