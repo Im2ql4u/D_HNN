@@ -16,6 +16,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+molecular = [
+    "torch-geometric>=2.5",
+    "ase>=3.22",
+]
 dev = [
     "jupyter",
     "ipykernel",

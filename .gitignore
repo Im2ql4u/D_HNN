@@ -27,3 +27,11 @@ env/
 *.pt
 *.pth
 *.ckpt
+data/
+checkpoints/
+
+# Molecular data formats
+*.npz
+*.xyz
+*.extxyz
+*.db

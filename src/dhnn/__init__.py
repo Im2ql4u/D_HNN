@@ -21,3 +21,17 @@ __all__ = [
     "thesis_viridial", "thesis_viridial_r", "C",
     "create_dhnn_animation",
 ]
+
+# ── Optional: molecular subpackage (requires torch-geometric) ────────
+try:
+    from dhnn.molecular import (                   # noqa: F401
+        get_rmd17,
+        SchNetHamiltonian,
+        train_schnet,
+        compute_hessian,
+        normal_mode_analysis,
+        project_to_modes,
+        project_from_modes,
+    )
+except ImportError:
+    pass  # torch-geometric not installed — toy-system code still works
